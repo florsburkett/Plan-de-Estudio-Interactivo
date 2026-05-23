@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan de Estudios Interactivo</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        :root {
+            --primary: #ff7e5f;
+            --secondary: #feb47b;
+            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            
+            /* Colores de Estado */
+            --color-locked: #d1d5db; /* Gris oscuro - Bloqueada */
+            --color-state-0-cursar: #f3f4f6; /* Gris claro - Habilitada para cursar */
+            --color-state-0-aprobar: #ffffff; /* Blanco - Habilitada para aprobar */
+            --color-state-1: #bae6fd; /* Azul claro - Cursando */
+            --color-state-2: #fef08a; /* Amarillo claro - Regularizada */
+            --color-state-3: #bbf7d0; /* Verde claro - Promocionada/Aprobada */
+            --color-state-4: #fecaca; /* Rojo claro - Recursada */
+
+            --glass-bg: rgba(255, 255, 255, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.8);
+            --glass-shadow: 0 8px 32px 0 rgba(255, 126, 95, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        /* Contenedor 3D */
+        .scene {
+            width: 100%;
+            max-width: 1400px;
+            height: 90vh;
+            perspective: 1500px;
+        }
+
+        .card-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.8s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .card-container.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        /* Caras de la tarjeta principal */
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Cabeceras */
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Grilla del Plan de Estudios (Cara Delantera) */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            padding-bottom: 60px; /* Espacio para el botón */
+        }
+
+        /* Scrollbar personalizado */
+        .board::-webkit-scrollbar { width: 8px; }
+        .board::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); border-radius: 10px; }
+        .board::-webkit-scrollbar-thumb { background: var(--secondary); border-radius: 10px; }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .col-title {
+            text-align: center;
+            font-weight: 600;
+            color: #555;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--secondary);
+            margin-bottom: 10px;
+        }
+
+        /* Tarjetas de Materias */
+        .subject {
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            position: relative;
+            border: 1px solid rgba(0,0,0,0.05);
+            user-select: none;
+        }
+
+        .subject:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+
+        .subject.locked {
+            background-color: var(--color-locked) !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .subject-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subject-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #333;
+            line-height: 1.2;
+        }
+
+        .btn-expand {
+            background: rgba(255,255,255,0.5);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.3s;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .btn-expand:hover { background: white; }
+        .subject.expanded .btn-expand { transform: rotate(45deg); }
+
+        /* Acordeón de Apuntes */
+        .accordion {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out;
+            cursor: default;
+        }
+
+        .subject.expanded .accordion {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border-top: 1px dashed rgba(0,0,0,0.1);
+            padding-top: 10px;
+        }
+
+        .note-block {
+            background: rgba(255,255,255,0.6);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.75rem;
+        }
+
+        .note-block input {
+            width: 100%;
+            margin-bottom: 5px;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .btn-add-note {
+            width: 100%;
+            padding: 5px;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        /* Botones Flotantes (Flip) */
+        .btn-flip {
+            position: absolute;
+            bottom: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 126, 95, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            z-index: 10;
+        }
+
+        .btn-flip:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(255, 126, 95, 0.6);
+        }
+
+        .btn-front { right: 20px; }
+        .btn-back { left: 20px; }
+
+        /* Cara Trasera (Estadísticas) */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            width: 80%;
+            max-width: 800px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border: 1px solid rgba(255, 126, 95, 0.2);
+        }
+
+        .stat-card.full-width { grid-column: span 2; background: linear-gradient(135deg, rgba(255,126,95,0.1), rgba(254,180,123,0.1)); }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #555;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Leyenda de colores */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #555;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="scene">
+    <div class="card-container" id="flip-container">
+        
+        <!-- CARA DELANTERA: PLAN DE ESTUDIOS -->
+        <div class="card-face">
+            <h1>Plan de Estudios</h1>
+            
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color" style="background: var(--color-locked)"></div>Bloqueada</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--color-state-0-cursar)"></div>Puede Cursar</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--color-state-0-aprobar)"></div>Puede Rendir</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--color-state-1)"></div>Cursando</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--color-state-2)"></div>Regularizada</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--color-state-3)"></div>Aprobada</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--color-state-4)"></div>Recursada</div>
+            </div>
+
+            <div class="board" id="board">
+                <!-- Las columnas se generan por JS -->
+            </div>
+            <button class="btn-flip btn-front" onclick="flipCard()">Ver Estadísticas ➔</button>
+        </div>
+
+        <!-- CARA TRASERA: ESTADÍSTICAS -->
+        <div class="card-face card-back">
+            <h1>Panel de Estadísticas</h1>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-progreso">0%</div>
+                    <div class="stat-label">Materias Aprobadas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-regularizadas">0%</div>
+                    <div class="stat-label">Materias Regularizadas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-porcursar">100%</div>
+                    <div class="stat-label">Por Cursar</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-cursadas">0</div>
+                    <div class="stat-label">Total Cursadas (Activas/Reg/Aprob)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-cant-aprobadas">0</div>
+                    <div class="stat-label">Cant. Aprobadas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-finales">0</div>
+                    <div class="stat-label">Finales a Rendir</div>
+                </div>
+                <div class="stat-card full-width">
+                    <div class="stat-value" id="stat-anios">5.0 años</div>
+                    <div class="stat-label">Tiempo Restante Estimado</div>
+                </div>
+            </div>
+            <button class="btn-flip btn-back" onclick="flipCard()">🡄 Volver al Plan</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // BASE DE DATOS DE MATERIAS
+    const db = [
+        { id: 1, year: 1, name: "Análisis Matemático I", reqC: [], reqA: [] },
+        { id: 2, year: 1, name: "Química General", reqC: [], reqA: [] },
+        { id: 3, year: 1, name: "Sistemas de Representación", reqC: [], reqA: [] },
+        { id: 4, year: 1, name: "Informática I", reqC: [], reqA: [] },
+        { id: 5, year: 1, name: "Pensamiento Sistémico", reqC: [], reqA: [] },
+        { id: 6, year: 1, name: "Física I", reqC: [], reqA: [] },
+        { id: 7, year: 1, name: "Álgebra y Geometría Analítica", reqC: [], reqA: [] },
+        { id: 8, year: 1, name: "Ingeniería y Sociedad", reqC: [], reqA: [] },
+        
+        { id: 9, year: 2, name: "Análisis Matemático II", reqC: [1, 7], reqA: [] },
+        { id: 10, year: 2, name: "Administración General", reqC: [4, 5, 7, 8], reqA: [] },
+        { id: 11, year: 2, name: "Probabilidad y Estadística", reqC: [1, 7], reqA: [] },
+        { id: 12, year: 2, name: "Ciencia de los Materiales", reqC: [2, 6], reqA: [] },
+        { id: 13, year: 2, name: "Física II", reqC: [1, 6], reqA: [] },
+        { id: 14, year: 2, name: "Economía General", reqC: [1, 5, 8], reqA: [] },
+        { id: 15, year: 2, name: "Informática II", reqC: [4], reqA: [] },
+        { id: 16, year: 2, name: "Inglés I", reqC: [], reqA: [] },
+        
+        { id: 17, year: 3, name: "Costos y Presupuestos", reqC: [10, 14], reqA: [1, 4, 5, 7, 8] },
+        { id: 18, year: 3, name: "Estudio del Trabajo", reqC: [10, 11], reqA: [1, 3, 4, 5, 7, 8] },
+        { id: 19, year: 3, name: "Comercialización", reqC: [10, 11, 14], reqA: [1, 4, 5, 7, 8] },
+        { id: 20, year: 3, name: "Termodinámica y Máquinas Térmicas", reqC: [2, 13], reqA: [1, 6] },
+        { id: 21, year: 3, name: "Estática y Resistencia de Materiales", reqC: [9, 12], reqA: [1, 2, 6, 7] },
+        { id: 22, year: 3, name: "Mecánica de los Fluidos", reqC: [9], reqA: [1, 6, 7] },
+        { id: 23, year: 3, name: "Economía de la Empresa", reqC: [10, 14], reqA: [1, 4, 5, 7, 8] },
+        { id: 24, year: 3, name: "Electrotecnia y Máquinas Eléctricas", reqC: [13], reqA: [1, 6] },
+        { id: 25, year: 3, name: "Análisis Numérico y Cálculo Avanzado", reqC: [9], reqA: [1, 7] },
+        
+        { id: 26, year: 4, name: "Seguridad, Higiene e Ing. Ambiental", reqC: [18], reqA: [10, 11] },
+        { id: 27, year: 4, name: "Investigación Operativa", reqC: [9, 11, 25], reqA: [1, 7] },
+        { id: 28, year: 4, name: "Procesos Industriales", reqC: [18, 20, 24], reqA: [2, 10, 12, 13] },
+        { id: 29, year: 4, name: "Mecánica y Mecanismos", reqC: [9], reqA: [1, 6, 7] },
+        { id: 30, year: 4, name: "Evaluación de Proyectos", reqC: [17, 18, 19, 23], reqA: [10, 11, 14, 16] },
+        { id: 31, year: 4, name: "Planificación y Control de la Producción", reqC: [18], reqA: [10, 11] },
+        { id: 32, year: 4, name: "Diseño del Producto", reqC: [15, 19], reqA: [3, 4, 10, 11, 14] },
+        { id: 33, year: 4, name: "Inglés II", reqC: [16], reqA: [] },
+        { id: 34, year: 4, name: "Instalaciones Industriales", reqC: [20, 21, 22, 24], reqA: [2, 9, 12, 13] },
+        { id: 35, year: 4, name: "Legislación", reqC: [], reqA: [10] },
+        
+        { id: 36, year: 5, name: "Mantenimiento", reqC: [34], reqA: [20, 21, 24] },
+        { id: 37, year: 5, name: "Manejo de Materiales y Dist. de Plantas", reqC: [18, 29], reqA: [9, 10, 21] },
+        { id: 38, year: 5, name: "Comercio Exterior", reqC: [30], reqA: [18, 19, 23] },
+        { id: 39, year: 5, name: "Relaciones Industriales", reqC: [18], reqA: [10, 11] },
+        { id: 40, year: 5, name: "Proyecto Final", reqC: [18], reqA: [10, 11] },
+        { id: 41, year: 5, name: "Ingeniería en Calidad", reqC: [17, 23], reqA: [10, 14] },
+        { id: 42, year: 5, name: "Control de Gestión", reqC: [25, 26, 27, 28, 30, 31], reqA: [18, 19, 20, 21, 22, 23, 24, 33] }
+    ];
+
+    // ESTADOS Y ALMACENAMIENTO
+    let states = JSON.parse(localStorage.getItem('planStates')) || {};
+    let notes = JSON.parse(localStorage.getItem('planNotes')) || {};
+
+    // Inicializar estados si no existen
+    db.forEach(sub => {
+        if (states[sub.id] === undefined) states[sub.id] = 0;
+        if (!notes[sub.id]) notes[sub.id] = [];
+    });
+
+    // COLORES POR ESTADO
+    const stateColors = {
+        0: 'var(--color-state-0-cursar)', // Se sobreescribe por lógica si está bloqueada o lista para rendir
+        1: 'var(--color-state-1)',
+        2: 'var(--color-state-2)',
+        3: 'var(--color-state-3)',
+        4: 'var(--color-state-4)'
+    };
+
+    // INICIALIZACIÓN DE LA INTERFAZ
+    function initBoard() {
+        const board = document.getElementById('board');
+        board.innerHTML = '';
+
+        for (let y = 1; y <= 5; y++) {
+            const col = document.createElement('div');
+            col.className = 'column';
+            col.innerHTML = `<div class="col-title">Año ${y}</div>`;
+            
+            // CORRECCIÓN: Insertamos la columna en el DOM primero
+            board.appendChild(col);
+            
+            const yearSubjects = db.filter(s => s.year === y);
+            yearSubjects.forEach(sub => {
+                const card = document.createElement('div');
+                card.className = 'subject';
+                card.id = `sub-${sub.id}`;
+                card.onclick = (e) => handleCardClick(e, sub.id);
+                
+                card.innerHTML = `
+                    <div class="subject-header">
+                        <span class="subject-name">${sub.id}. ${sub.name}</span>
+                        <button class="btn-expand" onclick="toggleAccordion(event, ${sub.id})">+</button>
+                    </div>
+                    <div class="accordion" id="acc-${sub.id}" onclick="event.stopPropagation()">
+                        <div id="notes-container-${sub.id}"></div>
+                        <button class="btn-add-note" onclick="addNoteBlock(${sub.id})">Añadir Info</button>
+                    </div>
+                `;
+                
+                // Insertamos la tarjeta en la columna (que ya está en el DOM)
+                col.appendChild(card);
+                
+                // Ahora document.getElementById sí encontrará el contenedor
+                renderNotes(sub.id);
+            });
+        }
+        evaluateLogic();
+    }
+
+    // LÓGICA DE CORRELATIVIDADES Y ESTADOS
+    function evaluateLogic() {
+        let changed = false;
+
+        db.forEach(sub => {
+            // Evaluar si cumple requisitos para cursar (ReqC >= 2)
+            const canCursar = sub.reqC.every(reqId => states[reqId] >= 2);
+            // Evaluar si cumple requisitos para aprobar (ReqA == 3)
+            const canAprobar = sub.reqA.every(reqId => states[reqId] === 3);
+
+            // Efecto en cadena: Si no puede cursar pero tiene estado > 0, resetear
+            if (!canCursar && states[sub.id] > 0) {
+                states[sub.id] = 0;
+                changed = true;
+            }
+            // Si está aprobada (3) pero perdió requisitos para aprobar, resetear a 0 (estricto)
+            if (!canAprobar && states[sub.id] === 3) {
+                states[sub.id] = 0;
+                changed = true;
+            }
+
+            // Actualizar UI
+            const card = document.getElementById(`sub-${sub.id}`);
+            if (card) {
+                if (!canCursar) {
+                    card.classList.add('locked');
+                    card.style.backgroundColor = '';
+                } else {
+                    card.classList.remove('locked');
+                    if (states[sub.id] === 0) {
+                        card.style.backgroundColor = canAprobar ? 'var(--color-state-0-aprobar)' : 'var(--color-state-0-cursar)';
+                    } else {
+                        card.style.backgroundColor = stateColors[states[sub.id]];
+                    }
+                }
+            }
+        });
+
+        // Si hubo reseteos en cadena, reevaluar
+        if (changed) {
+            evaluateLogic();
+        } else {
+            saveData();
+            updateStats();
+        }
+    }
+
+    // INTERACCIÓN: CLIC EN TARJETA
+    function handleCardClick(event, id) {
+        if (event.target.closest('.btn-expand') || event.target.closest('.accordion') || event.target.tagName === 'INPUT') return;
+
+        const sub = db.find(s => s.id === id);
+        const canCursar = sub.reqC.every(reqId => states[reqId] >= 2);
+        const canAprobar = sub.reqA.every(reqId => states[reqId] === 3);
+
+        if (!canCursar) return; // Bloqueada
+
+        let nextState = (states[id] + 1) % 5;
+        if (nextState === 3 && !canAprobar) {
+            nextState = 4;
+        }
+
+        states[id] = nextState;
+        evaluateLogic();
+    }
+
+    // INTERACCIÓN: ACORDEÓN
+    function toggleAccordion(event, id) {
+        event.stopPropagation();
+        const card = document.getElementById(`sub-${id}`);
+        card.classList.toggle('expanded');
+    }
+
+    // GESTIÓN DE APUNTES
+    function renderNotes(id) {
+        const container = document.getElementById(`notes-container-${id}`);
+        if (!container) return;
+        
+        container.innerHTML = '';
+        notes[id].forEach((note, index) => {
+            const block = document.createElement('div');
+            block.className = 'note-block';
+            block.style.position = 'relative'; // Para posicionar el botón de borrar
+            block.innerHTML = `
+                <input type="text" placeholder="Profesor" value="${note.prof}" onchange="updateNote(${id}, ${index}, 'prof', this.value)">
+                <input type="text" placeholder="Notas Parciales" value="${note.parciales}" onchange="updateNote(${id}, ${index}, 'parciales', this.value)">
+                <input type="text" placeholder="Nota Final" value="${note.final}" onchange="updateNote(${id}, ${index}, 'final', this.value)">
+                <input type="text" placeholder="Seguimiento" value="${note.seguimiento}" onchange="updateNote(${id}, ${index}, 'seguimiento', this.value)">
+                <button style="width:100%; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.7rem; margin-top:2px;" 
+                        onclick="deleteNoteBlock(${id}, ${index})">Eliminar Apunte</button>
+            `;
+            container.appendChild(block);
+        });
+    }
+    function deleteNoteBlock(id, index) {
+        notes[id].splice(index, 1);
+        renderNotes(id);
+        saveData();
+    }
+    function addNoteBlock(id) {
+        notes[id].push({ prof: '', parciales: '', final: '', seguimiento: '' });
+        renderNotes(id);
+        saveData();
+    }
+
+    function updateNote(id, index, field, value) {
+        notes[id][index][field] = value;
+        saveData();
+    }
+
+    // GUARDAR DATOS
+    function saveData() {
+        localStorage.setItem('planStates', JSON.stringify(states));
+        localStorage.setItem('planNotes', JSON.stringify(notes));
+    }
+
+    // ESTADÍSTICAS
+    function updateStats() {
+        const total = 42;
+        let reg = 0, aprob = 0, cursando = 0, recursada = 0, nocursada = 0;
+
+        Object.values(states).forEach(st => {
+            if (st === 0) nocursada++;
+            if (st === 1) cursando++;
+            if (st === 2) reg++;
+            if (st === 3) aprob++;
+            if (st === 4) recursada++;
+        });
+
+        const pctReg = ((reg / total) * 100).toFixed(1);
+        const pctAprob = ((aprob / total) * 100).toFixed(1);
+        const pctPorCursar = (((nocursada + cursando + recursada) / total) * 100).toFixed(1);
+        const cantCursadas = aprob + reg + cursando;
+        const aniosRestantes = Math.max(0, (total - aprob - reg) / 8.4).toFixed(1);
+
+        document.getElementById('stat-progreso').innerText = `${pctAprob}%`;
+        document.getElementById('stat-regularizadas').innerText = `${pctReg}%`;
+        document.getElementById('stat-porcursar').innerText = `${pctPorCursar}%`;
+        document.getElementById('stat-cant-aprobadas').innerText = aprob;
+        document.getElementById('stat-finales').innerText = reg;
+        document.getElementById('stat-cursadas').innerText = cantCursadas;
+        document.getElementById('stat-anios').innerText = `${aniosRestantes} años`;
+    }
+
+    // ANIMACIÓN FLIP 3D
+    function flipCard() {
+        document.getElementById('flip-container').classList.toggle('is-flipped');
+    }
+
+    // INICIAR APP
+    window.onload = initBoard;
+
+</script>
+</body>
+</html>
