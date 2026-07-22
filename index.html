@@ -310,6 +310,76 @@
             border-radius: 3px;
             border: 1px solid #ccc;
         }
+	/* Buscador */
+        .search-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 0 20px;
+            width: 100%;
+        }
+        #search-subject {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 15px;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            font-size: 0.9rem;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn-clear {
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: none;
+            background-color: #ef4444;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+        .btn-clear:hover { background-color: #dc2626; }
+
+        /* Modo Enfoque de Correlatividades */
+        .board.focus-mode .subject {
+            opacity: 0.15; /* Atenúa todo el tablero */
+            transform: scale(0.95);
+            pointer-events: none; /* Evita hacer clics accidentales en este modo */
+        }
+        
+        /* Materia seleccionada (Centro) */
+        .board.focus-mode .subject.highlight-center {
+            opacity: 1;
+            transform: scale(1.05);
+            border: 3px solid var(--primary);
+            box-shadow: 0 0 20px var(--primary);
+            z-index: 10;
+        }
+
+        /* Materias que pide tener Regularizadas (Naranja) */
+        .board.focus-mode .subject.highlight-req-cursada {
+            opacity: 1;
+            transform: scale(1.02);
+            border: 3px solid #f59e0b;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+        }
+
+        /* Materias que pide tener Aprobadas (Rojo) */
+        .board.focus-mode .subject.highlight-req-aprobada {
+            opacity: 1;
+            transform: scale(1.02);
+            border: 3px solid #ef4444;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+        }
+
+        /* Materias que te Habilita cursar a futuro (Verde) */
+        .board.focus-mode .subject.highlight-habilita {
+            opacity: 1;
+            transform: scale(1.02);
+            border: 3px solid #10b981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
 
     </style>
 </head>
@@ -321,7 +391,12 @@
         <!-- CARA DELANTERA: PLAN DE ESTUDIOS -->
         <div class="card-face">
             <h1>Plan de Estudios</h1>
-            
+            <!-- Buscador de Correlatividades -->
+            <div class="search-container">
+                <input list="subjects-list" id="search-subject" placeholder="Buscar materia para ver correlativas..." onchange="handleSearch()">
+                <datalist id="subjects-list"></datalist>
+                <button class="btn-clear" onclick="clearSearch()">Limpiar Búsqueda</button>
+            </div>
             <div class="legend">
                 <div class="legend-item"><div class="legend-color" style="background: var(--color-locked)"></div>Bloqueada</div>
                 <div class="legend-item"><div class="legend-color" style="background: var(--color-state-0-cursar)"></div>Puede Cursar</div>
@@ -423,9 +498,9 @@
         { id: 37, year: 5, name: "Manejo de Materiales y Dist. de Plantas", reqC: [18, 29], reqA: [9, 10, 21] },
         { id: 38, year: 5, name: "Comercio Exterior", reqC: [30], reqA: [18, 19, 23] },
         { id: 39, year: 5, name: "Relaciones Industriales", reqC: [18], reqA: [10, 11] },
-        { id: 40, year: 5, name: "Proyecto Final", reqC: [18], reqA: [10, 11] },
-        { id: 41, year: 5, name: "Ingeniería en Calidad", reqC: [17, 23], reqA: [10, 14] },
-        { id: 42, year: 5, name: "Control de Gestión", reqC: [25, 26, 27, 28, 30, 31], reqA: [18, 19, 20, 21, 22, 23, 24, 33] }
+        { id: 40, year: 5, name: "Ingeniería en Calidad", reqC: [18], reqA: [10, 11] },
+        { id: 41, year: 5, name: "Control de Gestión", reqC: [17, 23], reqA: [10, 14] },
+        { id: 42, year: 5, name: "Proyecto Final", reqC: [25, 26, 27, 28, 30, 31], reqA: [18, 19, 20, 21, 22, 23, 24, 33] }
     ];
 
     // ESTADOS Y ALMACENAMIENTO
@@ -486,6 +561,7 @@
             });
         }
         evaluateLogic();
+	populateDatalist();
     }
 
     // LÓGICA DE CORRELATIVIDADES Y ESTADOS
@@ -637,6 +713,79 @@
         document.getElementById('flip-container').classList.toggle('is-flipped');
     }
 
+// POBLE LA LISTA DEL BUSCADOR
+    function populateDatalist() {
+        const datalist = document.getElementById('subjects-list');
+        datalist.innerHTML = '';
+        db.forEach(sub => {
+            const option = document.createElement('option');
+            option.value = `${sub.id}. ${sub.name}`;
+            datalist.appendChild(option);
+        });
+    }
+
+    // LÓGICA DE BÚSQUEDA
+    function handleSearch() {
+        const inputVal = document.getElementById('search-subject').value;
+        const match = inputVal.match(/^(\d+)\./); // Extrae el número de la materia al inicio
+        
+        if (!match) {
+            clearSearch();
+            return;
+        }
+
+        const id = parseInt(match[1]);
+        applyFocusMode(id);
+    }
+
+    // APLICAR MODO ENFOQUE
+    function applyFocusMode(centerId) {
+        const board = document.getElementById('board');
+        board.classList.add('focus-mode');
+
+        // Limpiar resaltados previos
+        document.querySelectorAll('.subject').forEach(el => {
+            el.classList.remove('highlight-center', 'highlight-req-cursada', 'highlight-req-aprobada', 'highlight-habilita');
+        });
+
+        const sub = db.find(s => s.id === centerId);
+        if(!sub) return;
+
+        // 1. Destacar la materia buscada (Centro)
+        const centerCard = document.getElementById(`sub-${centerId}`);
+        if(centerCard) centerCard.classList.add('highlight-center');
+
+        // 2. Destacar Requisitos Hacia Atrás (Naranja/Rojo)
+        sub.reqC.forEach(reqId => {
+            const el = document.getElementById(`sub-${reqId}`);
+            if(el) el.classList.add('highlight-req-cursada');
+        });
+
+        sub.reqA.forEach(reqId => {
+            const el = document.getElementById(`sub-${reqId}`);
+            if(el) el.classList.add('highlight-req-aprobada');
+        });
+
+        // 3. Destacar Materias que Habilita Hacia Adelante (Verde)
+        db.forEach(otherSub => {
+            // Si la materia buscada está en los requisitos (cursada o aprobada) de otra materia
+            if (otherSub.reqC.includes(centerId) || otherSub.reqA.includes(centerId)) {
+                const el = document.getElementById(`sub-${otherSub.id}`);
+                if(el) el.classList.add('highlight-habilita');
+            }
+        });
+    }
+
+    // LIMPIAR BÚSQUEDA
+    function clearSearch() {
+        document.getElementById('search-subject').value = '';
+        const board = document.getElementById('board');
+        board.classList.remove('focus-mode');
+        
+        document.querySelectorAll('.subject').forEach(el => {
+            el.classList.remove('highlight-center', 'highlight-req-cursada', 'highlight-req-aprobada', 'highlight-habilita');
+        });
+    }
     // INICIAR APP
     window.onload = initBoard;
 
